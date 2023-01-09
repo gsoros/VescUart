@@ -30,6 +30,8 @@ int VescUart::receiveUartMessage(uint8_t* payloadReceived) {
     uint8_t messageReceived[256];
     uint16_t lenPayload = 0;
 
+    ulong start = millis();
+
     uint32_t timeout = millis() + _TIMEOUT;  // Defining the timestamp for timeout (100ms before timeout)
 
     while (millis() < timeout && messageRead == false) {
@@ -52,7 +54,7 @@ int VescUart::receiveUartMessage(uint8_t* payloadReceived) {
 
                     default:
                         if (debugPort != NULL) {
-                            debugPort->println("Unvalid start bit");
+                            debugPort->println("Invalid start bit");
                         }
                         break;
                 }
@@ -73,7 +75,7 @@ int VescUart::receiveUartMessage(uint8_t* payloadReceived) {
         }
     }
     if (messageRead == false && debugPort != NULL) {
-        debugPort->println("Timeout");
+        debugPort->printf("[VescUart::receiveUartMessage] Timeout after %dms\n", millis() - start);
     }
 
     bool unpacked = false;
