@@ -17,6 +17,7 @@ void VescUart::setDebugPort(Stream* port) {
 }
 
 int VescUart::receiveUartMessage(uint8_t* payloadReceived) {
+    debugPort->printf("[VescUart::receiveUartMessage] Start\n");
     // Messages <= 255 starts with "2", 2nd byte is length
     // Messages > 255 starts with "3" 2nd and 3rd byte is length combined with 1st >>8 and then &0xFF
 
@@ -32,10 +33,11 @@ int VescUart::receiveUartMessage(uint8_t* payloadReceived) {
 
     ulong start = millis();
 
-    uint32_t timeout = millis() + _TIMEOUT;  // Defining the timestamp for timeout (100ms before timeout)
+    uint32_t timeout = millis() + _TIMEOUT;  // Defining the timestamp for timeout (1000ms timeout)
 
     while (millis() < timeout && messageRead == false) {
         while (serialPort->available()) {
+            debugPort->printf("[VescUart::receiveUartMessage] Reading %d\n", counter);
             messageReceived[counter++] = serialPort->read();
 
             if (counter == 2) {
@@ -48,13 +50,13 @@ int VescUart::receiveUartMessage(uint8_t* payloadReceived) {
                     case 3:
                         // ToDo: Add Message Handling > 255 (starting with 3)
                         if (debugPort != NULL) {
-                            debugPort->println("Message is larger than 256 bytes - not supported");
+                            debugPort->println("[VescUart::receiveUartMessage] Message is larger than 256 bytes - not supported");
                         }
                         break;
 
                     default:
                         if (debugPort != NULL) {
-                            debugPort->println("Invalid start bit");
+                            debugPort->println("[VescUart::receiveUartMessage] Invalid start bit");
                         }
                         break;
                 }
@@ -67,12 +69,14 @@ int VescUart::receiveUartMessage(uint8_t* payloadReceived) {
             if (counter == endMessage && messageReceived[endMessage - 1] == 3) {
                 messageReceived[endMessage] = 0;
                 if (debugPort != NULL) {
-                    debugPort->println("End of message reached!");
+                    debugPort->println("[VescUart::receiveUartMessage] End of message");
                 }
                 messageRead = true;
                 break;  // Exit if end of message is reached, even if there is still more data in the buffer.
             }
         }
+        debugPort->printf("[VescUart::receiveUartMessage] Waiting\n");
+        delay(100);
     }
     if (messageRead == false && debugPort != NULL) {
         debugPort->printf("[VescUart::receiveUartMessage] Timeout after %dms\n", millis() - start);
@@ -86,9 +90,11 @@ int VescUart::receiveUartMessage(uint8_t* payloadReceived) {
 
     if (unpacked) {
         // Message was read
+        debugPort->printf("[VescUart::receiveUartMessage] Received %dB payload\n", lenPayload);
         return lenPayload;
     } else {
         // No message was read
+        debugPort->printf("[VescUart::receiveUartMessage] Received nothing\n");
         return 0;
     }
 }
@@ -405,7 +411,7 @@ void VescUart::sendKeepalive(uint8_t canId) {
 
 void VescUart::serialPrint(uint8_t* data, int len) {
     if (debugPort != NULL) {
-        for (int i = 0; i <= len; i++) {
+        for (int i = 0; i < len; i++) {
             debugPort->print(data[i]);
             debugPort->print(" ");
         }
