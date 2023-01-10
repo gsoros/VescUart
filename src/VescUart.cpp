@@ -37,8 +37,8 @@ int VescUart::receiveUartMessage(uint8_t* payloadReceived) {
 
     while (millis() < timeout && messageRead == false) {
         while (serialPort->available()) {
-            debugPort->printf("[VescUart::receiveUartMessage] Reading %d\n", counter);
             messageReceived[counter++] = serialPort->read();
+            debugPort->printf("[VescUart::receiveUartMessage] Read %d: %d\n", counter, messageReceived[counter]);
 
             if (counter == 2) {
                 switch (messageReceived[0]) {
