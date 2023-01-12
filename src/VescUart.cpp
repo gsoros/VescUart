@@ -17,7 +17,9 @@ void VescUart::setDebugPort(Stream* port) {
 }
 
 int VescUart::receiveUartMessage(uint8_t* payloadReceived) {
-    debugPort->printf("[VescUart::receiveUartMessage] Start\n");
+    if (debugPort != NULL) {
+        debugPort->printf("[VescUart::receiveUartMessage] Start\n");
+    }
     // Messages <= 255 starts with "2", 2nd byte is length
     // Messages > 255 starts with "3" 2nd and 3rd byte is length combined with 1st >>8 and then &0xFF
 
@@ -38,12 +40,15 @@ int VescUart::receiveUartMessage(uint8_t* payloadReceived) {
     while (millis() < timeout && messageRead == false) {
         while (serialPort->available()) {
             messageReceived[counter++] = serialPort->read();
-            // debugPort->printf("[VescUart::receiveUartMessage] Read %d: %d\n", counter, messageReceived[counter]);
+
+            // if (debugPort != NULL) {
+            //     debugPort->printf("[VescUart::receiveUartMessage] Read %d: %d\n", counter, messageReceived[counter]);
+            // }
 
             if (counter == 2) {
                 switch (messageReceived[0]) {
                     case 2:
-                        endMessage = messageReceived[1] + 5;  // Payload size + 2 for sice + 3 for SRC and End.
+                        endMessage = messageReceived[1] + 5;  // Payload size + 2 for size + 3 for SRC and End.
                         lenPayload = messageReceived[1];
                         break;
 
@@ -75,7 +80,9 @@ int VescUart::receiveUartMessage(uint8_t* payloadReceived) {
                 break;  // Exit if end of message is reached, even if there is still more data in the buffer.
             }
         }
+        // if (debugPort != NULL) {
         // debugPort->printf("[VescUart::receiveUartMessage] Waiting\n");
+        // }
         // delay(100);
         yield();
     }
@@ -91,54 +98,56 @@ int VescUart::receiveUartMessage(uint8_t* payloadReceived) {
 
     if (unpacked) {
         // Message was read
-        // debugPort->printf("[VescUart::receiveUartMessage] Received %dB payload\n", lenPayload);
+        if (debugPort != NULL) {
+            debugPort->printf("[VescUart::receiveUartMessage] Received %dB payload\n", lenPayload);
+        }
         return lenPayload;
     } else {
         // No message was read
-        debugPort->printf("[VescUart::receiveUartMessage] Received nothing\n");
+        if (debugPort != NULL) {
+            debugPort->printf("[VescUart::receiveUartMessage] Received nothing\n");
+        }
         return 0;
     }
 }
 
 bool VescUart::unpackPayload(uint8_t* message, int lenMes, uint8_t* payload) {
-    uint16_t crcMessage = 0;
-    uint16_t crcPayload = 0;
+    uint16_t crcReceived = 0;
+    uint16_t crcCalculated = 0;
 
     // Rebuild crc:
-    crcMessage = message[lenMes - 3] << 8;
-    crcMessage &= 0xFF00;
-    crcMessage += message[lenMes - 2];
+    crcReceived = message[lenMes - 3] << 8;
+    crcReceived &= 0xFF00;
+    crcReceived += message[lenMes - 2];
 
     if (debugPort != NULL) {
-        // debugPort->print("SRC received: ");
-        // debugPort->println(crcMessage);
+        debugPort->print("[VescUart::unpackPayload] CRC received: ");
+        debugPort->println(crcReceived);
     }
 
     // Extract payload:
     memcpy(payload, &message[2], message[1]);
 
-    crcPayload = crc16(payload, message[1]);
+    crcCalculated = crc16(payload, message[1]);
 
     if (debugPort != NULL) {
-        // debugPort->print("SRC calc: ");
-        // debugPort->println(crcPayload);
+        debugPort->print("[VescUart::unpackPayload] CRC calculated: ");
+        debugPort->println(crcCalculated);
     }
 
-    if (crcPayload == crcMessage) {
+    if (crcCalculated == crcReceived) {
         if (debugPort != NULL) {
-            // debugPort->print("Received: ");
-            // serialPrint(message, lenMes);
+            debugPort->print("[VescUart::unpackPayload] Received: ");
+            serialPrint(message, lenMes);
             // debugPort->println();
 
-            // debugPort->print("Payload :      ");
+            // debugPort->print("[VescUart::unpackPayload] Payload:       ");
             // serialPrint(payload, message[1] - 1);
             // debugPort->println();
         }
-
         return true;
-    } else {
-        return false;
     }
+    return false;
 }
 
 int VescUart::packSendPayload(uint8_t* payload, int lenPay) {
@@ -163,10 +172,10 @@ int VescUart::packSendPayload(uint8_t* payload, int lenPay) {
     package[count++] = 3;
     // messageSend[count] = NULL;
 
-    // if (debugPort != NULL) {
-    //     debugPort->print("Package to send: ");
-    //     serialPrint(package, count);
-    // }
+    if (debugPort != NULL) {
+        debugPort->print("[VescUart::packSendPayload] Package to send: ");
+        serialPrint(package, count);
+    }
 
     // Send package
     if (serialPort != NULL) {
